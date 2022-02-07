@@ -1,0 +1,5 @@
+[deps]
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+OceanTurbulenceParameterEstimation = "eca81dc5-87a6-4430-aec8-c76695404a43"
+Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
