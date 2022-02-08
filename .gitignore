@@ -27,5 +27,6 @@ Manifest.toml
 *.mp4
 *.svg
 *.png
+*.swp
 
 *.DS_Store
