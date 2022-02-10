@@ -21,7 +21,8 @@ end
 priors = NamedTuple(name => perturbation_prior(θ★[name]) for name in keys(θ★))
 free_parameters = FreeParameters(priors)
 
-case_path(case) = @datadep_str("six_day_suite_1m/$(case)_instantaneous_statistics.jld2")
+suite = "six_day_suite"
+case_path(case) = @datadep_str("$(suite)_1m/$(case)_instantaneous_statistics.jld2")
 
 cases = [
          "strong_wind_no_rotation",
@@ -59,7 +60,7 @@ simulation = ensemble_column_model_simulation(observations;
                                               tracers = (:T, :e),
                                               closure = catke)
 
-simulation.Δt = 60.0
+simulation.Δt = 2minutes
 
 progress(sim) = @info "Iter: $(iteration(sim)), time: $(prettytime(sim))"
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
@@ -87,7 +88,7 @@ model = simulation.model
 
 simulation.output_writers[:fields] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
-                     prefix = "catke_simulation",
+                     prefix = "catke_simulation" * suite,
                      schedule = SpecifiedTimes(round.(observation_times(observations))...),
                      force = true)
 
@@ -149,7 +150,7 @@ for i = 1:length(cases)
     axislegend(ax_u[i], position=:rb)
     axislegend(ax_e[i], position=:rb)
 end
-=#
 
-#display(fig)
+display(fig)
+=#
 
