@@ -11,7 +11,7 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
 
 include("best_catke_parameters.jl")
 
-function perturbation_prior(θ★, ϵ=0.5)
+function perturbation_prior(θ★, ϵ=0.1)
     L = (1 - ϵ) * θ★
     U = (1 + ϵ) * θ★
     return ScaledLogitNormal(bounds=(L, U))
@@ -59,7 +59,7 @@ simulation = ensemble_column_model_simulation(observations;
                                               tracers = (:T, :e),
                                               closure = catke)
 
-simulation.Δt = 30.0
+simulation.Δt = 60.0
 
 progress(sim) = @info "Iter: $(iteration(sim)), time: $(prettytime(sim))"
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
@@ -94,6 +94,7 @@ simulation.output_writers[:fields] =
 θ = [θ_CA_constant_Pr, θ_constant_Pr, θ_variable_Pr]
 forward_run!(calibration, θ; suppress=false)
 
+#=
 output_path = simulation.output_writers[:fields].filepath
 u = FieldTimeSeries(output_path, "u")
 v = FieldTimeSeries(output_path, "v")
@@ -148,6 +149,7 @@ for i = 1:length(cases)
     axislegend(ax_u[i], position=:rb)
     axislegend(ax_e[i], position=:rb)
 end
+=#
 
 display(fig)
 
