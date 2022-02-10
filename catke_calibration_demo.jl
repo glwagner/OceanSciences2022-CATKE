@@ -23,8 +23,8 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
                  )
 
 function perturbation_prior(θ★, ϵ=0.7)
-    L = θ★ / 2
-    U = 2θ★
+    L = θ★ / 4
+    U = 4θ★
     return ScaledLogitNormal(bounds=(L, U))
 end
 
@@ -36,7 +36,7 @@ case_path(case) = @datadep_str("two_day_suite_4m/$(case)_instantaneous_statistic
 
 case = "weak_wind_strong_cooling"
 
-times = range(4hours, step=10minutes, stop=48hours)
+times = range(2hours, step=10minutes, stop=24hours)
 Nt = length(times)
 transformation = Transformation(time=TimeIndices([2, round(Int, Nt/2), Nt]))
 field_names = (:u, :v, :T, :e)
@@ -56,7 +56,7 @@ mixing_length = MixingLength(Cᴬu   = 0.0,
 
 catke = CATKEVerticalDiffusivity(; mixing_length)
 
-Nensemble = 100
+Nensemble = 40
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
@@ -65,7 +65,7 @@ simulation = ensemble_column_model_simulation(observations;
                                               tracers = (:T, :e),
                                               closure = catke)
 
-simulation.Δt = 2.0
+simulation.Δt = 1.0
 
 Qᵘ = simulation.model.velocities.u.boundary_conditions.top.condition
 Qᵀ = simulation.model.tracers.T.boundary_conditions.top.condition
@@ -175,8 +175,8 @@ lines!(ax_u, v_truth, z, color=(:darkred, 0.4),  linewidth=6, label="v, LES")
 lines!(ax_e, e_truth, z, color=(:gray23,  0.4),  linewidth=6, label="LES")
 
 xlims!(ax_u, -0.2, 0.3)
-xlims!(ax_e, -0.0002, 0.0022)
-xlims!(ax_T, 19.6, 20.1)
+xlims!(ax_e, -0.0002, 0.0016)
+xlims!(ax_T, 19.6, 20.0)
 
 axislegend(ax_T, position=:rb, merge=true)
 axislegend(ax_u, position=:rb, merge=true)

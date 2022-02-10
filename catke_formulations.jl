@@ -9,66 +9,7 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
     SurfaceTKEFlux,
     MixingLength
 
-θ_CA_constant_Pr = (CᴷRiʷ = 0.0,
-                    CᴷRiᶜ = 0.0,
-                    Cᴷu⁻ = 0.942,
-                    Cᴷc⁻ = 0.738,
-                    Cᴷe⁻ = 0.26,
-                    Cᴷuʳ = 0.0,
-                    Cᴷcʳ = 0.0,
-                    Cᴷeʳ = 0.0,
-                    Cᵟu  = 0.5,
-                    Cᵟc  = 0.642,
-                    Cᵟe  = 5.0,
-                    Cᴬu  = 0.0,
-                    Cᴬc  = 0.0,
-                    Cᴬe  = 0.186,
-                    Cᴰ   = 2.97,
-                    Cᴸᵇ  = 1.62,
-                    Cᵂu★ = 0.95,
-                    CᵂwΔ = 2.51)
-
-θ_constant_Pr = (
-                 CᵂwΔ  = 8.38,
-                 Cᵂu★  = 9.06,
-                 Cᴰ    = 1.37,
-                 Cᴸᵇ   = 1.13,
-                 Cᴷu⁻  = 0.0887,
-                 Cᴷc⁻  = 0.164,
-                 Cᴷe⁻  = 2.13,
-                 Cᴷuʳ  = 0.0,
-                 Cᴷcʳ  = 0.0,
-                 Cᴷeʳ  = 0.0,
-                 CᴷRiʷ = 0.0,
-                 CᴷRiᶜ = 0.0,
-                 Cᴬu   = 0.0,
-                 Cᴬc   = 0.0,
-                 Cᴬe   = 0.0,
-                 Cᵟu   = 0.5,
-                 Cᵟc   = 0.5,
-                 Cᵟe   = 0.5,
-                )
-
-θ_variable_Pr = (
-                 CᵂwΔ  = 8.20,
-                 Cᵂu★  = 6.77,
-                 Cᴰ    = 1.69,
-                 Cᴸᵇ   = 1.15,
-                 Cᴷu⁻  = 0.0924,
-                 Cᴷc⁻  = 0.288,
-                 Cᴷe⁻  = 2.46,
-                 Cᴷuʳ  = 1.32,
-                 Cᴷcʳ  = 0.0404,
-                 Cᴷeʳ  = 4.27,
-                 CᴷRiʷ = 3.15,
-                 CᴷRiᶜ = 2.08,
-                 Cᴬu   = 0.0,
-                 Cᴬc   = 0.0,
-                 Cᴬe   = 0.0,
-                 Cᵟu   = 0.5,
-                 Cᵟc   = 0.5,
-                 Cᵟe   = 0.5,
-                )
+include("best_catke_parameters.jl")
 
 function perturbation_prior(θ★, ϵ=0.5)
     L = (1 - ϵ) * θ★
