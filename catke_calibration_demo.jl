@@ -1,8 +1,11 @@
 using Oceananigans
+using Oceananigans.Units
 using OceanTurbulenceParameterEstimation
+using OceanTurbulenceParameterEstimation: Transformation
 using Distributions
 using DataDeps
 using GLMakie
+using Printf
 
 using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
     CATKEVerticalDiffusivity,
@@ -19,7 +22,7 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
                   Cᴷe⁻  = 2.13,
                  )
 
-function perturbation_prior(θ★, ϵ=0.5)
+function perturbation_prior(θ★, ϵ=0.7)
     L = θ★ / 2
     U = 2θ★
     return ScaledLogitNormal(bounds=(L, U))
@@ -29,23 +32,18 @@ end
 priors = NamedTuple(name => perturbation_prior(θ★[name]) for name in keys(θ★))
 free_parameters = FreeParameters(priors)
 
-case_path(case) = @datadep_str("two_day_suite_1m/$(case)_instantaneous_statistics.jld2")
+case_path(case) = @datadep_str("two_day_suite_4m/$(case)_instantaneous_statistics.jld2")
 
-cases = [#"free_convection",
-         "weak_wind_strong_cooling",
-         #"strong_wind_weak_cooling",
-         #"strong_wind",
-         #"strong_wind_no_rotation"]
-         
 case = "weak_wind_strong_cooling"
 
-times = 6hours:10minutes:44hours
+times = range(4hours, step=10minutes, stop=48hours)
+Nt = length(times)
+transformation = Transformation(time=TimeIndices([2, round(Int, Nt/2), Nt]))
 field_names = (:u, :v, :T, :e)
 regrid_size = nothing
-observations = SyntheticObservations(case_path(case); field_names, regrid_size, times)
+observations = SyntheticObservations(case_path(case); field_names, regrid_size, times, transformation)
 
-observation = first(observations)
-α = observation.metadata.parameters.thermal_expansion_coefficient
+α = observations.metadata.parameters.thermal_expansion_coefficient
 equation_of_state = LinearEquationOfState(; α)
 
 mixing_length = MixingLength(Cᴬu   = 0.0,
@@ -58,7 +56,7 @@ mixing_length = MixingLength(Cᴬu   = 0.0,
 
 catke = CATKEVerticalDiffusivity(; mixing_length)
 
-Nensemble = 10
+Nensemble = 100
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
@@ -67,56 +65,42 @@ simulation = ensemble_column_model_simulation(observations;
                                               tracers = (:T, :e),
                                               closure = catke)
 
-simulation.Δt = 30.0
-
-progress(sim) = @info "Iter: $(iteration(sim)), time: $(prettytime(sim))"
-simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
+simulation.Δt = 2.0
 
 Qᵘ = simulation.model.velocities.u.boundary_conditions.top.condition
 Qᵀ = simulation.model.tracers.T.boundary_conditions.top.condition
 dTdz = simulation.model.tracers.T.boundary_conditions.bottom.condition
 
-for (case, obs) in enumerate(observations)
-    @show case cases[case]
-    @show obs.metadata.parameters.momentum_flux
-    @show obs.metadata.parameters.temperature_flux
-    @show obs.metadata.parameters.buoyancy_flux
-    @show f = obs.metadata.parameters.coriolis_parameter
-
-    view(Qᵘ, :, case) .= obs.metadata.parameters.momentum_flux
-    view(Qᵀ, :, case) .= obs.metadata.parameters.temperature_flux
-    view(dTdz, :, case) .= obs.metadata.parameters.dθdz_deep
-    view(simulation.model.coriolis, :, case) .= Ref(FPlane(f=f))
-end
+Qᵘ .= observations.metadata.parameters.momentum_flux
+Qᵀ .= observations.metadata.parameters.temperature_flux
+dTdz .= observations.metadata.parameters.dθdz_deep
 
 calibration = InverseProblem(observations, simulation, free_parameters)
 
-model = simulation.model
-
-# either
-
 output_paths = []
+
+model = simulation.model
 
 simulation.output_writers[:fields] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
                      prefix = "catke_calibration_0",
-                     schedule = SpecifiedTimes(round.(observation_times(obs))...),
+                     schedule = SpecifiedTimes(times...),
                      force = true)
 
-push!(output_paths, simulation.output_writers[:fields].path)
+push!(output_paths, simulation.output_writers[:fields].filepath)
 
-eki = EnsembleKalmanInversion(calibration; noise_covariance=1e-2)
+eki = EnsembleKalmanInversion(calibration; noise_covariance=1e-3)
 
-for i = 1:3
-    iterate!(eki)
-    
+for i = 1:6
     simulation.output_writers[:fields] =
         JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
-                         prefix = string("catke_calibration_", eki.iteration),
-                         schedule = SpecifiedTimes(round.(observation_times(obs))...),
+                         prefix = string("catke_calibration_", i),
+                         schedule = SpecifiedTimes(times...),
                          force = true)
 
-    push!(output_paths, simulation.output_writers[:fields].path)
+    push!(output_paths, simulation.output_writers[:fields].filepath)
+
+    iterate!(eki)
 end
 
 u = []
@@ -124,16 +108,17 @@ v = []
 T = []
 e = []
 
-for path in output_paths
-    push!(u, FieldTimeSeries(output_path, "u"))
-    push!(v, FieldTimeSeries(output_path, "v"))
-    push!(T, FieldTimeSeries(output_path, "T"))
-    push!(e, FieldTimeSeries(output_path, "e"))
+for path in output_paths[2:end]
+    @show path
+    push!(u, FieldTimeSeries(path, "u"))
+    push!(v, FieldTimeSeries(path, "v"))
+    push!(T, FieldTimeSeries(path, "T"))
+    push!(e, FieldTimeSeries(path, "e"))
 end
 
-z = znodes(u)
+z = znodes(first(u))
 
-fig = Figure(resolution=(1200, 1200))
+fig = Figure(resolution=(1200, 600))
 
 ax_T = Axis(fig[1, 1], xlabel = "Temperature (ᵒC)", ylabel = "z (m)")
 ax_u = Axis(fig[1, 2], xlabel = "Velocity (m s⁻¹)", ylabel = "z (m)")
@@ -143,21 +128,11 @@ Nt = length(observations.times)
 time_slider = Slider(fig[2, :], range=1:Nt, horizontal=true, startvalue=1)
 n = time_slider.value
 
-iter_slider = Slider(fig[3, :], range=1:Nt, horizontal=true, startvalue=1)
+iter_slider = Slider(fig[3, :], range=1:length(u), horizontal=true, startvalue=1)
 iter = iter_slider.value
 
 profile_max(u, i, n) = Point2f.(maximum(interior(u[n])[:, i, :], dims=1)[:], z)
 profile_min(u, i, n) = Point2f.(minimum(interior(u[n])[:, i, :], dims=1)[:], z)
-
-u_truth = @lift interior(observations.field_time_serieses.u[$n])[1, 1, :]
-v_truth = @lift interior(observations.field_time_serieses.v[$n])[1, 1, :]
-T_truth = @lift interior(observations.field_time_serieses.T[$n])[1, 1, :]
-e_truth = @lift interior(observations.field_time_serieses.e[$n])[1, 1, :]
-
-lines!(ax_T, T_truth, z, color=(:gray23, 0.6), linewidth=5,   label="LES")
-lines!(ax_u, u_truth, z, color=(:gray23, 0.6), linewidth=5,   label="u, LES")
-lines!(ax_u, v_truth, z, color=(:darkred, 0.6), linewidth=1.5, label="v, LES")
-lines!(ax_e, e_truth, z, color=(:gray23, 0.6), linewidth=5,   label="LES")
 
 #=
 u_max = @lift profile_max(u[$iter], 1, $n)
@@ -183,18 +158,43 @@ for k = 1:Nensemble
     Tk = @lift interior(T[$iter][$n])[k, 1, :]
     ek = @lift interior(e[$iter][$n])[k, 1, :]
 
-    lines!(ax_T, Tk, z, color=(:royalblue1, 0.2), linewidth=1,   label="CATKE")
-    lines!(ax_u, uk, z, color=(:royalblue1, 0.2), linewidth=1,   label="u, CATKE")
-    lines!(ax_u, vk, z, color=(:orange,     0.2), linewidth=1, label="v, CATKE")
-    lines!(ax_e, ek, z, color=(:royalblue1, 0.2), linewidth=1,   label="CATKE")
+    lines!(ax_T, Tk, z, color=(:royalblue1, 0.8), linewidth=1,   label="CATKE")
+    lines!(ax_u, uk, z, color=(:royalblue1, 0.8), linewidth=1,   label="u, CATKE")
+    lines!(ax_u, vk, z, color=(:orange,     0.8), linewidth=1, label="v, CATKE")
+    lines!(ax_e, ek, z, color=(:royalblue1, 0.8), linewidth=1,   label="CATKE")
 end
 
-xlims!(ax_T, 19.6, 20.05)
-xlims!(ax_u, -0.6, 0.6)
-xlims!(ax_e, -0.0005, 0.005)
-axislegend(ax_T, position=:rb)
-axislegend(ax_u, position=:rb)
-axislegend(ax_e, position=:rb)
+u_truth = @lift interior(observations.field_time_serieses.u[$n])[1, 1, :]
+v_truth = @lift interior(observations.field_time_serieses.v[$n])[1, 1, :]
+T_truth = @lift interior(observations.field_time_serieses.T[$n])[1, 1, :]
+e_truth = @lift interior(observations.field_time_serieses.e[$n])[1, 1, :]
+
+lines!(ax_T, T_truth, z, color=(:gray23,  0.4),  linewidth=6, label="LES")
+lines!(ax_u, u_truth, z, color=(:gray23,  0.4),  linewidth=6, label="u, LES")
+lines!(ax_u, v_truth, z, color=(:darkred, 0.4),  linewidth=6, label="v, LES")
+lines!(ax_e, e_truth, z, color=(:gray23,  0.4),  linewidth=6, label="LES")
+
+xlims!(ax_u, -0.2, 0.3)
+xlims!(ax_e, -0.0002, 0.0022)
+xlims!(ax_T, 19.6, 20.1)
+
+axislegend(ax_T, position=:rb, merge=true)
+axislegend(ax_u, position=:rb, merge=true)
+axislegend(ax_e, position=:rb, merge=true)
+
+title = @lift @sprintf("LES and CATKE solutions at %.1f hours with iteration %d parameters", u[1].times[$n] / hour, $iter - 1)
+Label(fig[0, :], title)
 
 display(fig)
+
+nswitch = floor(Int, Nt/length(output_paths))
+record(fig, "calibration_demo.mp4", 1:Nt; framerate=16) do nn
+    @info "Drawing frame $nn of $Nt..."
+    if nn % nswitch == 0 && iter.val < 2
+        iter[] += iter.val
+    end 
+
+    n[] = nn
+end
+
 

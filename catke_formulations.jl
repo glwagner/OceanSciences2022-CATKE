@@ -9,6 +9,46 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
     SurfaceTKEFlux,
     MixingLength
 
+θ_CA_constant_Pr = (CᴷRiʷ = 0.0,
+                    CᴷRiᶜ = 0.0,
+                    Cᴷu⁻ = 0.942,
+                    Cᴷc⁻ = 0.738,
+                    Cᴷe⁻ = 0.26,
+                    Cᴷuʳ = 0.0,
+                    Cᴷcʳ = 0.0,
+                    Cᴷeʳ = 0.0,
+                    Cᵟu  = 0.5,
+                    Cᵟc  = 0.642,
+                    Cᵟe  = 5.0,
+                    Cᴬu  = 0.0,
+                    Cᴬc  = 0.0,
+                    Cᴬe  = 0.186,
+                    Cᴰ   = 2.97,
+                    Cᴸᵇ  = 1.62,
+                    Cᵂu★ = 0.95,
+                    CᵂwΔ = 2.51)
+
+θ_constant_Pr = (
+                 CᵂwΔ  = 8.38,
+                 Cᵂu★  = 9.06,
+                 Cᴰ    = 1.37,
+                 Cᴸᵇ   = 1.13,
+                 Cᴷu⁻  = 0.0887,
+                 Cᴷc⁻  = 0.164,
+                 Cᴷe⁻  = 2.13,
+                 Cᴷuʳ  = 0.0,
+                 Cᴷcʳ  = 0.0,
+                 Cᴷeʳ  = 0.0,
+                 CᴷRiʷ = 0.0,
+                 CᴷRiᶜ = 0.0,
+                 Cᴬu   = 0.0,
+                 Cᴬc   = 0.0,
+                 Cᴬe   = 0.0,
+                 Cᵟu   = 0.5,
+                 Cᵟc   = 0.5,
+                 Cᵟe   = 0.5,
+                )
+
 θ_variable_Pr = (
                  CᵂwΔ  = 8.20,
                  Cᵂu★  = 6.77,
@@ -36,17 +76,19 @@ function perturbation_prior(θ★, ϵ=0.5)
     return ScaledLogitNormal(bounds=(L, U))
 end
 
-θ★ = θ_constant_Ri
+θ★ = θ_constant_Pr
 priors = NamedTuple(name => perturbation_prior(θ★[name]) for name in keys(θ★))
 free_parameters = FreeParameters(priors)
 
 case_path(case) = @datadep_str("six_day_suite_1m/$(case)_instantaneous_statistics.jld2")
 
-cases = ["free_convection",
+cases = [
+         "strong_wind_no_rotation",
+         "free_convection",
          "weak_wind_strong_cooling",
          "strong_wind_weak_cooling",
          "strong_wind",
-         "strong_wind_no_rotation"]
+        ]
 
 field_names = (:u, :v, :T, :e)
 regrid_size = nothing
@@ -67,7 +109,7 @@ mixing_length = MixingLength(Cᴬu   = 0.0,
 
 catke = CATKEVerticalDiffusivity(; mixing_length)
 
-Nensemble = 20
+Nensemble = 3
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
@@ -108,9 +150,7 @@ simulation.output_writers[:fields] =
                      schedule = SpecifiedTimes(round.(observation_times(obs))...),
                      force = true)
 
-θ_perturbed = [NamedTuple(name => rand(priors[name]) for name in keys(priors)) for k=1:Nensemble-1]
-θ = [θ★, θ_perturbed...]
-
+θ = [θ_CA_constant_Pr, θ_constant_Pr, θ_variable_Pr]
 forward_run!(calibration, θ; suppress=false)
 
 output_path = simulation.output_writers[:fields].filepath
@@ -135,22 +175,7 @@ profile_max(u, i, n) = Point2f.(maximum(interior(u[n])[:, i, :], dims=1)[:], z)
 profile_min(u, i, n) = Point2f.(minimum(interior(u[n])[:, i, :], dims=1)[:], z)
 
 for i = 1:length(cases)
-    u★ = @lift interior(u[$n])[1, i, :]
-    v★ = @lift interior(v[$n])[1, i, :]
-    T★ = @lift interior(T[$n])[1, i, :]
-    e★ = @lift interior(e[$n])[1, i, :]
-
-    u_max = @lift profile_max(u, i, $n)
-    v_max = @lift profile_max(v, i, $n)
-    T_max = @lift profile_max(T, i, $n)
-    e_max = @lift profile_max(e, i, $n)
-
-    u_min = @lift profile_min(u, i, $n)
-    v_min = @lift profile_min(v, i, $n)
-    T_min = @lift profile_min(T, i, $n)
-    e_min = @lift profile_min(e, i, $n)
-
-    obs = observations[i]
+     obs = observations[i]
     u_truth = @lift interior(obs.field_time_serieses.u[$n])[1, 1, :]
     v_truth = @lift interior(obs.field_time_serieses.v[$n])[1, 1, :]
     T_truth = @lift interior(obs.field_time_serieses.T[$n])[1, 1, :]
@@ -161,16 +186,17 @@ for i = 1:length(cases)
     i == 1 && lines!(ax_u[i], v_truth, z, color=(:gray23, 0.6), linewidth=1.5, label="v, LES")
               lines!(ax_e[i], e_truth, z, color=(:gray23, 0.6), linewidth=5,   label="LES")
 
-    color = (:pink, 0.4)
-    band!(ax_T[i], T_max, T_min; color)
-    band!(ax_e[i], e_max, e_min; color)
-    band!(ax_u[i], u_max, u_min; color)
-    i == 1 && band!(ax_u[i], v_max, v_min; color)
-
-              lines!(ax_T[i], T★, z, color=:purple1, linewidth=3,   label="CATKE")
-              lines!(ax_u[i], u★, z, color=:purple1, linewidth=3,   label="u, CATKE")
-    i == 1 && lines!(ax_u[i], v★, z, color=:purple1, linewidth=1.5, label="v, CATKE")
-              lines!(ax_e[i], e★, z, color=:purple1, linewidth=3,   label="CATKE")
+    for k = 1:Nensemble
+        uk = @lift interior(u[$n])[k, i, :]
+        vk = @lift interior(v[$n])[k, i, :]
+        Tk = @lift interior(T[$n])[k, i, :]
+        ek = @lift interior(e[$n])[k, i, :]
+       
+                  lines!(ax_T[i], Tk, z, color=:purple1, linewidth=3,   label="CATKE $k")
+                  lines!(ax_u[i], uk, z, color=:purple1, linewidth=3,   label="u, CATKE $k")
+        i == 1 && lines!(ax_u[i], vk, z, color=:purple1, linewidth=1.5, label="v, CATKE $k")
+                  lines!(ax_e[i], ek, z, color=:purple1, linewidth=3,   label="CATKE $k")
+    end
 end
 
 for i = 1:length(cases)
