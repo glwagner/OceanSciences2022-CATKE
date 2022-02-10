@@ -12,8 +12,8 @@ using GLMakie
 using Printf
 using Statistics
 
-#=
-dir = "two_day_suite/highres"
+#dir = "two_day_suite/highres"
+dir = "six_day_suite"
 filename = "weak_wind_strong_cooling"
 xy_filepath = joinpath(dir, filename * "_xy_slice.jld2")
 
@@ -100,7 +100,6 @@ z_yz = repeat(reshape(z, 1, Nz), grid.Ny, 1)
 x_xy = x
 y_xy = y
 z_xy = - 0.001 * Lz * ones(grid.Nx, grid.Ny)
-=#
 
 #####
 ##### Animate!

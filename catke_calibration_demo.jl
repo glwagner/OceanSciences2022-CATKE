@@ -12,6 +12,7 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
     SurfaceTKEFlux,
     MixingLength
 
+#=
 θ_constant_Ri = (; 
                   CᵂwΔ  = 8.38,
                   Cᵂu★  = 9.06,
@@ -60,7 +61,7 @@ Nensemble = 40
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
-                                              architecture = CPU(),
+                                              architecture = GPU(),
                                               buoyancy = SeawaterBuoyancy(; equation_of_state, constant_salinity=true),
                                               tracers = (:T, :e),
                                               closure = catke)
@@ -91,7 +92,7 @@ push!(output_paths, simulation.output_writers[:fields].filepath)
 
 eki = EnsembleKalmanInversion(calibration; noise_covariance=1e-3)
 
-for i = 1:6
+for i = 1:5
     simulation.output_writers[:fields] =
         JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
                          prefix = string("catke_calibration_", i),
@@ -102,18 +103,20 @@ for i = 1:6
 
     iterate!(eki)
 end
+=#
 
 u = []
 v = []
 T = []
 e = []
 
-for path in output_paths[2:end]
-    @show path
-    push!(u, FieldTimeSeries(path, "u"))
-    push!(v, FieldTimeSeries(path, "v"))
-    push!(T, FieldTimeSeries(path, "T"))
-    push!(e, FieldTimeSeries(path, "e"))
+for i = 0:5
+    @show i
+    path = string("catke_calibration_", i, ".jld2")
+    push!(u, FieldTimeSeries(path, "u", boundary_conditions=nothing))
+    push!(v, FieldTimeSeries(path, "v", boundary_conditions=nothing))
+    push!(T, FieldTimeSeries(path, "T", boundary_conditions=nothing))
+    push!(e, FieldTimeSeries(path, "e", boundary_conditions=nothing))
 end
 
 z = znodes(first(u))
@@ -196,5 +199,4 @@ record(fig, "calibration_demo.mp4", 1:Nt; framerate=16) do nn
 
     n[] = nn
 end
-
 
