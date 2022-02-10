@@ -12,7 +12,7 @@ using GLMakie
 using Printf
 using Statistics
 
-dir = "two_day_suite"
+dir = "six_day_suite"
 name = "weak_wind_strong_cooling"
 xz_filepath = joinpath(dir, name * "_xz_slice.jld2")
 yz_filepath = joinpath(dir, name * "_yz_slice.jld2")

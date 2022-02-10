@@ -4,7 +4,7 @@ using OceanTurbulenceParameterEstimation
 using OceanTurbulenceParameterEstimation: Transformation
 using Distributions
 using DataDeps
-#using GLMakie
+using GLMakie
 using Printf
 
 using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
@@ -91,7 +91,7 @@ push!(output_paths, simulation.output_writers[:fields].filepath)
 
 eki = EnsembleKalmanInversion(calibration; noise_covariance=1e-2)
 
-for i = 1:3
+for i = 1:5
     simulation.output_writers[:fields] =
         JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
                          prefix = string("catke_calibration_", i),
@@ -103,18 +103,18 @@ for i = 1:3
     iterate!(eki)
 end
 
-#=
 u = []
 v = []
 T = []
 e = []
 
-for i = 0:6
+for i = 0:5
+    @show i
     path = string("catke_calibration_", i, ".jld2")
-    push!(u, FieldTimeSeries(path, "u", architecture=CPU()))
-    push!(v, FieldTimeSeries(path, "v", architecture=CPU()))
-    push!(T, FieldTimeSeries(path, "T", architecture=CPU()))
-    push!(e, FieldTimeSeries(path, "e", architecture=CPU()))
+    push!(u, FieldTimeSeries(path, "u", boundary_conditions=nothing))
+    push!(v, FieldTimeSeries(path, "v", boundary_conditions=nothing))
+    push!(T, FieldTimeSeries(path, "T", boundary_conditions=nothing))
+    push!(e, FieldTimeSeries(path, "e", boundary_conditions=nothing))
 end
 
 z = znodes(first(u))
@@ -189,6 +189,7 @@ Label(fig[0, :], title)
 display(fig)
 
 nswitch = floor(Int, Nt/length(output_paths))
+
 #record(fig, "calibration_demo.mp4", 1:Nt; framerate=16) do nn
 #    @info "Drawing frame $nn of $Nt..."
 #    if nn % nswitch == 0 && iter.val < 2
@@ -197,5 +198,3 @@ nswitch = floor(Int, Nt/length(output_paths))
 #
 #    n[] = nn
 #end
-
-=#
