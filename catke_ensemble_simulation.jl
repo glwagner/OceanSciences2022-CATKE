@@ -9,7 +9,6 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
     SurfaceTKEFlux,
     MixingLength
 
-#=
 θ_constant_Ri = (; Cᴸᵇ   = 1.36,
                    Cᴷu⁻  = 0.101,
                    Cᴷc⁻  = 0.0574,
@@ -28,16 +27,16 @@ function perturbation_prior(θ★, ϵ=0.5)
 end
 
 θ★ = θ_constant_Ri
-priors = NamedTuple(name => perturbation_prior(θ_constant_Ri[name]) for name in keys(θ★))
+priors = NamedTuple(name => perturbation_prior(θ★[name]) for name in keys(θ★))
 free_parameters = FreeParameters(priors)
 
 case_path(case) = @datadep_str("two_day_suite_1m/$(case)_instantaneous_statistics.jld2")
 
 cases = [#"free_convection",
-         #"weak_wind_strong_cooling",
+         "weak_wind_strong_cooling",
          #"strong_wind_weak_cooling",
-         "strong_wind",
-         "strong_wind_no_rotation"]
+         #"strong_wind",
+         #"strong_wind_no_rotation"]
 
 field_names = (:u, :v, :T, :e)
 regrid_size = nothing
@@ -67,17 +66,10 @@ simulation = ensemble_column_model_simulation(observations;
                                               tracers = (:T, :e),
                                               closure = catke)
 
-simulation.Δt = 2.0
+simulation.Δt = 30.0
 
 progress(sim) = @info "Iter: $(iteration(sim)), time: $(prettytime(sim))"
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
-
-model = simulation.model
-simulation.output_writers[:fields] =
-    JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
-                     prefix = "catke_simulation",
-                     schedule = SpecifiedTimes(round.(observation_times(obs))...),
-                     force = true)
 
 Qᵘ = simulation.model.velocities.u.boundary_conditions.top.condition
 Qᵀ = simulation.model.tracers.T.boundary_conditions.top.condition
@@ -98,11 +90,18 @@ end
 
 calibration = InverseProblem(observations, simulation, free_parameters)
 
+model = simulation.model
+
+simulation.output_writers[:fields] =
+    JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
+                     prefix = "catke_simulation",
+                     schedule = SpecifiedTimes(round.(observation_times(obs))...),
+                     force = true)
+
 θ_perturbed = [NamedTuple(name => rand(priors[name]) for name in keys(priors)) for k=1:Nensemble-1]
 θ = [θ★, θ_perturbed...]
 
 forward_run!(calibration, θ; suppress=false)
-=#
 
 output_path = simulation.output_writers[:fields].filepath
 u = FieldTimeSeries(output_path, "u")
@@ -174,3 +173,4 @@ for i = 1:2
 end
 
 display(fig)
+

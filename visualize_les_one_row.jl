@@ -106,7 +106,7 @@ z_xy = - 0.001 * Lz * ones(grid.Nx, grid.Ny)
 ##### Animate!
 #####
 
-fig = Figure(resolution=(1100, 1200))
+fig = Figure(resolution=(1800, 800))
 
 azimuth = 0.86
 elevation = 0.38
@@ -116,16 +116,19 @@ xlabel = "x (m)"
 ylabel = "y (m)"
 zlabel = "z (m)"
 
-ax_T = Axis3(fig[1:8, 2:4]; aspect, xlabel, ylabel, zlabel, azimuth, elevation, perspectiveness)
-ax_e = Axis3(fig[9:16, 2:4]; aspect, xlabel, ylabel, zlabel, azimuth, elevation, perspectiveness)
+row = 1:6
+bottom = row[end] + 2
+ax_e = Axis3(fig[row, 1:4]; aspect, xlabel, ylabel, zlabel, azimuth, elevation, perspectiveness)
+ax_T = Axis3(fig[row, 5:8]; aspect, xlabel, ylabel, zlabel, azimuth, elevation, perspectiveness)
 
-ax_T_avg = Axis(fig[3:7, 5], xlabel="Temperature (ᵒC)", ylabel="z (m)")
-ax_u_avg = Axis(fig[11:15, 5], xlabel="Velocity components (m s⁻¹)", ylabel="z (m)")
+ax_T_avg = Axis(fig[3:6, 9:10], xlabel="Temperature (ᵒC)", ylabel="z (m)")
+ax_u_avg = Axis(fig[3:6, 11:12], xlabel="Velocity components (m s⁻¹)", ylabel="z (m)")
 
-slider = Slider(fig[17:18, :], range=1:Nt, startvalue=1)
+slider = Slider(fig[bottom+2, :], range=1:Nt, startvalue=1)
 n = slider.value #Observable(1)
 
-title = @lift @sprintf("Ocean surface boundary layer turbulence forced for %.1f hours", times[$n] / hour)
+title = @lift @sprintf("Ocean surface boundary layer turbulence forced by cooling and light winds for %.1f hours",
+                       times[$n] / hour)
 lab = Label(fig[0, :], title, textsize=24)
 
 ###
@@ -181,8 +184,8 @@ end
 sfc_e = box!(ax_e, e_yz, e_xz, e_xy, colormap=colormap_e, colorrange=colorrange_e)
 sfc_T = box!(ax_T, T_yz, T_xz, T_xy, colormap=colormap_T, colorrange=colorrange_T)
 
-cp_T = fig[4:8, 1] = Colorbar(fig, sfc_T, flipaxis=false, vertical=true, label="Temperature (ᵒC)")
-cp_e = fig[12:16, 1] = Colorbar(fig, sfc_e, flipaxis=false, vertical=true, label="Turbulent kinetic energy (m² s⁻²)")
+cp_e = fig[bottom, 2:3] = Colorbar(fig, sfc_e, flipaxis=false, vertical=false, label="Turbulent kinetic energy (m² s⁻²)")
+cp_T = fig[bottom, 6:7] = Colorbar(fig, sfc_T, flipaxis=false, vertical=false, label="Temperature (ᵒC)")
 
 lines!(ax_T_avg, T_avg, z, linewidth=5, color=(:royalblue1, 0.6))
 
@@ -191,14 +194,18 @@ lines!(ax_u_avg, v_avg, z, linewidth=3, color=(:orange, 0.9), label="v")
 xlims!(ax_u_avg, -0.2, 0.3)
 axislegend(ax_u_avg, position=:rb)
 
-colgap!(fig.layout, 1, Relative(0))
-colgap!(fig.layout, 2, Relative(0))
+hideydecorations!(ax_u_avg, grid=false)
+hidespines!(ax_u_avg, :r, :t, :l)
+hidespines!(ax_T_avg, :r, :t)
+
+colgap!(fig.layout, Relative(0))
+colgap!(fig.layout, 10, Relative(0.03))
 rowgap!(fig.layout, Relative(0))
 
 display(fig)
 
-#record(fig, joinpath(dir, filename * "_intro.mp4"), 1:Nt; framerate=16) do nn
-#    @info "Drawing frame $nn of $Nt..."
-#    n[] = nn
-#end
+record(fig, joinpath(dir, filename * "_one_row_intro.mp4"), 1:Nt; framerate=16) do nn
+    @info "Drawing frame $nn of $Nt..."
+    n[] = nn
+end
 
