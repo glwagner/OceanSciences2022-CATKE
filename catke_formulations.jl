@@ -54,7 +54,7 @@ Nensemble = 3
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
-                                              architecture = CPU(),
+                                              architecture = GPU(),
                                               buoyancy = SeawaterBuoyancy(; equation_of_state, constant_salinity=true),
                                               tracers = (:T, :e),
                                               closure = catke)
@@ -88,7 +88,7 @@ model = simulation.model
 simulation.output_writers[:fields] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
                      prefix = "catke_simulation",
-                     schedule = SpecifiedTimes(round.(observation_times(obs))...),
+                     schedule = SpecifiedTimes(round.(observation_times(observations))...),
                      force = true)
 
 θ = [θ_CA_constant_Pr, θ_constant_Pr, θ_variable_Pr]
@@ -151,5 +151,5 @@ for i = 1:length(cases)
 end
 =#
 
-display(fig)
+#display(fig)
 

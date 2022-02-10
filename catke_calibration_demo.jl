@@ -4,7 +4,7 @@ using OceanTurbulenceParameterEstimation
 using OceanTurbulenceParameterEstimation: Transformation
 using Distributions
 using DataDeps
-using GLMakie
+#using GLMakie
 using Printf
 
 using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
@@ -24,7 +24,7 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
 
 function perturbation_prior(θ★, ϵ=0.7)
     L = θ★ / 4
-    U = 4θ★
+    U = 2θ★
     return ScaledLogitNormal(bounds=(L, U))
 end
 
@@ -36,7 +36,7 @@ case_path(case) = @datadep_str("two_day_suite_4m/$(case)_instantaneous_statistic
 
 case = "weak_wind_strong_cooling"
 
-times = range(2hours, step=10minutes, stop=24hours)
+times = range(2hours, step=10minutes, stop=48hours)
 Nt = length(times)
 transformation = Transformation(time=TimeIndices([2, round(Int, Nt/2), Nt]))
 field_names = (:u, :v, :T, :e)
@@ -60,12 +60,12 @@ Nensemble = 40
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
-                                              architecture = CPU(),
+                                              architecture = GPU(),
                                               buoyancy = SeawaterBuoyancy(; equation_of_state, constant_salinity=true),
                                               tracers = (:T, :e),
                                               closure = catke)
 
-simulation.Δt = 1.0
+simulation.Δt = 2.0
 
 Qᵘ = simulation.model.velocities.u.boundary_conditions.top.condition
 Qᵀ = simulation.model.tracers.T.boundary_conditions.top.condition
@@ -89,9 +89,9 @@ simulation.output_writers[:fields] =
 
 push!(output_paths, simulation.output_writers[:fields].filepath)
 
-eki = EnsembleKalmanInversion(calibration; noise_covariance=1e-3)
+eki = EnsembleKalmanInversion(calibration; noise_covariance=1e-2)
 
-for i = 1:6
+for i = 1:3
     simulation.output_writers[:fields] =
         JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
                          prefix = string("catke_calibration_", i),
@@ -103,17 +103,18 @@ for i = 1:6
     iterate!(eki)
 end
 
+#=
 u = []
 v = []
 T = []
 e = []
 
-for path in output_paths[2:end]
-    @show path
-    push!(u, FieldTimeSeries(path, "u"))
-    push!(v, FieldTimeSeries(path, "v"))
-    push!(T, FieldTimeSeries(path, "T"))
-    push!(e, FieldTimeSeries(path, "e"))
+for i = 0:6
+    path = string("catke_calibration_", i, ".jld2")
+    push!(u, FieldTimeSeries(path, "u", architecture=CPU()))
+    push!(v, FieldTimeSeries(path, "v", architecture=CPU()))
+    push!(T, FieldTimeSeries(path, "T", architecture=CPU()))
+    push!(e, FieldTimeSeries(path, "e", architecture=CPU()))
 end
 
 z = znodes(first(u))
@@ -188,13 +189,13 @@ Label(fig[0, :], title)
 display(fig)
 
 nswitch = floor(Int, Nt/length(output_paths))
-record(fig, "calibration_demo.mp4", 1:Nt; framerate=16) do nn
-    @info "Drawing frame $nn of $Nt..."
-    if nn % nswitch == 0 && iter.val < 2
-        iter[] += iter.val
-    end 
+#record(fig, "calibration_demo.mp4", 1:Nt; framerate=16) do nn
+#    @info "Drawing frame $nn of $Nt..."
+#    if nn % nswitch == 0 && iter.val < 2
+#        iter[] += iter.val
+#    end 
+#
+#    n[] = nn
+#end
 
-    n[] = nn
-end
-
-
+=#
