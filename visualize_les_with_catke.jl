@@ -56,16 +56,15 @@ dTdz = xy_file["parameters/dθdz_deep"]
 
 close(xy_file)
 
-H = Hz
-chop(a::AbstractArray{<:Any, 1}) = a[1+H:end-H]
-chop(a::AbstractArray{<:Any, 2}) = a[1+H:end-H, 1+H:end-H]
+chop(a::AbstractArray{<:Any, 1}, H=Hz) = a[1+H:end-H]
+chop(a::AbstractArray{<:Any, 2}, H=Hz) = a[1+H:end-H, 1+H:end-H]
 
 function extract_slices(dir, filename; name="w")
     xz_filepath = joinpath(dir, filename * "_xz_slice.jld2")
     yz_filepath = joinpath(dir, filename * "_yz_slice.jld2")
     xy_filepath = joinpath(dir, filename * "_xy_slice.jld2")
     statistics_filepath = joinpath(dir, filename * "_instantaneous_statistics.jld2")
-    catke_filepath = "catke_simulation.jld2"
+    catke_filepath = "catke_simulation$(dir).jld2"
 
     all_iterations = []
     slices = []
@@ -86,9 +85,9 @@ function extract_slices(dir, filename; name="w")
     file = jldopen(catke_filepath)
     iterations = parse.(Int, keys(file["timeseries/t"]))
     push!(all_iterations, iterations)
-    catke_conv_adj = [chop(file["timeseries/$name/$i"][1, k_case, :]) for i in iterations]
-    catke_constant_Pr = [chop(file["timeseries/$name/$i"][2, k_case, :]) for i in iterations]
-    catke_variable_Pr = [chop(file["timeseries/$name/$i"][3, k_case, :]) for i in iterations]
+    catke_conv_adj    = [chop(file["timeseries/$name/$i"][1, k_case, :], 0) for i in iterations]
+    catke_constant_Pr = [chop(file["timeseries/$name/$i"][2, k_case, :], 0) for i in iterations]
+    catke_variable_Pr = [chop(file["timeseries/$name/$i"][3, k_case, :], 0) for i in iterations]
     close(file)
 
     return (; yz=slices[1], xz=slices[2], xy=slices[3], statistics, all_iterations,
@@ -233,12 +232,13 @@ lines!(ax_u_avg, v_catke_constant_Pr, z, linewidth=1, color=(:red4, 0.8), label=
 lines!(ax_u_avg, v_catke_variable_Pr, z, linewidth=1, color=(:darkorange3, 0.8), label="v, CATKE variable Pr")
 lines!(ax_u_avg, v_catke_conv_adj, z, linewidth=1, color=(:coral1, 0.8), label="v, CATKE w conv adj")
 
-lines!(ax_T_avg, T_avg, z, linewidth=5, color=(:gray21, 0.6))
-lines!(ax_u_avg, u_avg, z, linewidth=5, color=(:gray21, 0.6), label="u")
-lines!(ax_u_avg, v_avg, z, linewidth=3, color=(:gray62, 0.6), label="v")
+lines!(ax_T_avg, T_avg, z, linewidth=5, color=(:gray21, 0.6), label="LES")
+lines!(ax_u_avg, u_avg, z, linewidth=5, color=(:gray21, 0.6), label="u, LES")
+lines!(ax_u_avg, v_avg, z, linewidth=3, color=(:gray62, 0.6), label="v, LES")
 
 xlims!(ax_u_avg, -0.2, 0.3)
-axislegend(ax_u_avg, position=:rb)
+fig[5, 13] = Legend(fig, ax_u_avg)
+fig[7, 13] = Legend(fig, ax_T_avg)
 
 hideydecorations!(ax_u_avg, grid=false)
 hidespines!(ax_u_avg, :r, :t, :l)
@@ -250,8 +250,8 @@ rowgap!(fig.layout, Relative(0))
 
 display(fig)
 
-#record(fig, joinpath(dir, filename * "_one_row_intro.mp4"), 1:Nt; framerate=16) do nn
-#    @info "Drawing frame $nn of $Nt..."
-#    n[] = nn
-#end
+record(fig, joinpath(dir, filename * "_one_row_intro.mp4"), 1:Nt; framerate=16) do nn
+    @info "Drawing frame $nn of $Nt..."
+    n[] = nn
+end
 

@@ -25,11 +25,11 @@ suite = "six_day_suite"
 case_path(case) = @datadep_str("$(suite)_1m/$(case)_instantaneous_statistics.jld2")
 
 cases = [
-         "strong_wind_no_rotation",
          "free_convection",
          "weak_wind_strong_cooling",
          "strong_wind_weak_cooling",
          "strong_wind",
+         "strong_wind_no_rotation",
         ]
 
 field_names = (:u, :v, :T, :e)
