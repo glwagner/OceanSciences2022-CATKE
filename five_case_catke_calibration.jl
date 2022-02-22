@@ -72,7 +72,8 @@ observations = [observation_library[case] for case in cases]
 mixing_length = MixingLength(Cᴬu   = 0.0,
                              Cᴬc   = 0.0,
                              Cᴬe   = 0.0,
-                             Cᵇ    = 0.0,
+                             #Cᵇ    = 0.0,
+                             Cᴸᵇ    = 0.0,
                              Cᴷu⁻  = 0.101,
                              Cᴷc⁻  = 0.0574,
                              Cᴷe⁻  = 3.32,
@@ -98,6 +99,7 @@ prior_library[:Cᵂu★]  = ScaledLogitNormal(; bounds=(2, 10)) #, interval=(3, 
 prior_library[:Cᴰ]    = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.5, 2), mass)
 
 prior_library[:Cᵇ]   = ScaledLogitNormal(; bounds=(0, 0.5)) #, interval=(0.1, 2), mass)
+prior_library[:Cᴸᵇ]   = ScaledLogitNormal(; bounds=(0, 0.5)) #, interval=(0.1, 2), mass)
 prior_library[:Cˢ]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
 
 prior_library[:Cᵇu]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
@@ -139,10 +141,10 @@ convective_adjustment_parameters = (:Cᴬc, :Cᴬe) # Cᴬu
 # :Cᴸˢ
 parameter_names = (:CᵂwΔ,  :Cᵂu★, :Cᴰ,
                    #:Cˢ, #:Cˢc,   :Cˢu,  :Cˢe,
-                   :Cᵇ, #:Cᵇc,   :Cᵇu,  :Cᵇe,
+                   :Cᴸᵇ, #:Cᵇc,   :Cᵇu,  :Cᵇe,
                    :Cᴷc⁻,  :Cᴷu⁻, :Cᴷe⁻,
-                   :Cᴷcʳ,  :Cᴷuʳ, :Cᴷeʳ,
-                   :CᴷRiᶜ, :CᴷRiʷ,
+                   #:Cᴷcʳ,  :Cᴷuʳ, :Cᴷeʳ,
+                   #:CᴷRiᶜ, :CᴷRiʷ,
                   )#:Cᴬc,  :Cᴬˢc)
 
 free_parameters = FreeParameters(prior_library, names=parameter_names)
