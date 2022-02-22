@@ -48,7 +48,7 @@ for (suite, end_time) in zip(suites, end_times)
              "strong_wind_no_rotation",
             ]
 
-    Δz = 8
+    Δz = 1
     times = [6hours, end_time]
     field_names = (:u, :v, :T, :e)
     regrid_size = (1, 1, Int(256/Δz))
@@ -73,7 +73,7 @@ for (suite, end_time) in zip(suites, end_times)
                                                   tracers = (:T, :e),
                                                   closure = catke)
 
-    simulation.Δt = 10.0
+    simulation.Δt = 1.0
     progress(sim) = @info "Iter: $(iteration(sim)), time: $(prettytime(sim))"
     simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
 

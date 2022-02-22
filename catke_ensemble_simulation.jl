@@ -9,30 +9,11 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
     SurfaceTKEFlux,
     MixingLength
 
-θ_variable_Pr = (
-                 CᵂwΔ  = 8.20,
-                 Cᵂu★  = 6.77,
-                 Cᴰ    = 1.69,
-                 Cᴸᵇ   = 1.15,
-                 Cᴷu⁻  = 0.0924,
-                 Cᴷc⁻  = 0.288,
-                 Cᴷe⁻  = 2.46,
-                 Cᴷuʳ  = 1.32,
-                 Cᴷcʳ  = 0.0404,
-                 Cᴷeʳ  = 4.27,
-                 CᴷRiʷ = 3.15,
-                 CᴷRiᶜ = 2.08,
-                 Cᴬu   = 0.0,
-                 Cᴬc   = 0.0,
-                 Cᴬe   = 0.0,
-                 Cᵟu   = 0.5,
-                 Cᵟc   = 0.5,
-                 Cᵟe   = 0.5,
-                )
+include("best_catke_parameters.jl")
 
 function perturbation_prior(θ★, ϵ=0.5)
-    L = (1 - ϵ) * θ★
-    U = (1 + ϵ) * θ★
+    L = 0.1θ★
+    U = 2θ★
     return ScaledLogitNormal(bounds=(L, U))
 end
 
@@ -67,7 +48,7 @@ mixing_length = MixingLength(Cᴬu   = 0.0,
 
 catke = CATKEVerticalDiffusivity(; mixing_length)
 
-Nensemble = 20
+Nensemble = 200
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
@@ -76,7 +57,7 @@ simulation = ensemble_column_model_simulation(observations;
                                               tracers = (:T, :e),
                                               closure = catke)
 
-simulation.Δt = 30.0
+simulation.Δt = 10.0
 
 progress(sim) = @info "Iter: $(iteration(sim)), time: $(prettytime(sim))"
 simulation.callbacks[:progress] = Callback(progress, IterationInterval(100))
@@ -104,7 +85,7 @@ model = simulation.model
 
 simulation.output_writers[:fields] =
     JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
-                     prefix = "catke_simulation",
+                     prefix = "catke_ensemble_simulation",
                      schedule = SpecifiedTimes(round.(observation_times(obs))...),
                      force = true)
 

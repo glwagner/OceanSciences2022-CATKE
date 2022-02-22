@@ -12,27 +12,28 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
     SurfaceTKEFlux,
     MixingLength
 
-θ_constant_Ri = (; 
-                  CᵂwΔ  = 8.38,
-                  Cᵂu★  = 9.06,
-                  Cᴰ    = 1.37,
-                  Cᴸᵇ   = 1.13,
-                  Cᴷu⁻  = 0.0887,
-                  Cᴷc⁻  = 0.164,
-                  Cᴷe⁻  = 2.13,
-                 )
+include("best_catke_parameters.jl")
 
 function perturbation_prior(θ★, ϵ=0.7)
-    L = θ★ / 4
+    L = 0.1θ★
     U = 2θ★
     return ScaledLogitNormal(bounds=(L, U))
 end
 
 θ★ = θ_constant_Ri
-priors = NamedTuple(name => perturbation_prior(θ★[name]) for name in keys(θ★))
-free_parameters = FreeParameters(priors)
 
-case_path(case) = @datadep_str("two_day_suite_4m/$(case)_instantaneous_statistics.jld2")
+priors = Dict()
+priors[:CᵂwΔ] = ScaledLogitNormal(bounds=(4, 12))  # 8.66
+priors[:Cᵂu★] = ScaledLogitNormal(bounds=(1, 4))   # 2.89
+priors[:Cᴰ]   = ScaledLogitNormal(bounds=(0, 1))   # 0.489
+priors[:Cᴸᵇ]  = ScaledLogitNormal(bounds=(0, 0.1)) # 0.0286
+priors[:Cᴷu⁻] = ScaledLogitNormal(bounds=(0, 0.2)) # 0.0776
+priors[:Cᴷc⁻] = ScaledLogitNormal(bounds=(0, 1))   # 0.567
+priors[:Cᴷe⁻] = ScaledLogitNormal(bounds=(7, 11))  # 9.00
+
+free_parameters = FreeParameters(priors, names = tuple(keys(priors)...))
+
+case_path(case) = @datadep_str("two_day_suite_1m/$(case)_instantaneous_statistics.jld2")
 
 case = "weak_wind_strong_cooling"
 
@@ -40,7 +41,7 @@ times = range(2hours, step=10minutes, stop=48hours)
 Nt = length(times)
 transformation = Transformation(time=TimeIndices([2, round(Int, Nt/2), Nt]))
 field_names = (:u, :v, :T, :e)
-regrid_size = nothing
+regrid_size = (1, 1, 128)
 observations = SyntheticObservations(case_path(case); field_names, regrid_size, times, transformation)
 
 α = observations.metadata.parameters.thermal_expansion_coefficient
@@ -56,7 +57,7 @@ mixing_length = MixingLength(Cᴬu   = 0.0,
 
 catke = CATKEVerticalDiffusivity(; mixing_length)
 
-Nensemble = 40
+Nensemble = 200
 
 simulation = ensemble_column_model_simulation(observations;
                                               Nensemble,
@@ -89,9 +90,9 @@ simulation.output_writers[:fields] =
 
 push!(output_paths, simulation.output_writers[:fields].filepath)
 
-eki = EnsembleKalmanInversion(calibration; noise_covariance=1e-2)
+eki = EnsembleKalmanInversion(calibration; convergence_rate=0.5)
 
-for i = 1:5
+for i = 1:4
     simulation.output_writers[:fields] =
         JLD2OutputWriter(model, merge(model.velocities, model.tracers, model.diffusivity_fields),
                          prefix = string("catke_calibration_", i),
@@ -103,6 +104,7 @@ for i = 1:5
     iterate!(eki)
 end
 
+#=
 u = []
 v = []
 T = []
@@ -198,3 +200,4 @@ nswitch = floor(Int, Nt/length(output_paths))
 #
 #    n[] = nn
 #end
+=#

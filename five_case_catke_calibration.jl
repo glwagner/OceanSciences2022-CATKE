@@ -17,9 +17,9 @@ using Oceananigans.TurbulenceClosures.CATKEVerticalDiffusivities:
 
 case_path(case) = @datadep_str("four_day_suite_1m/$(case)_instantaneous_statistics.jld2")
 
-Δz = 2
-#times = [96hours - 20minutes, 96hours]
-times = [12hours, 96hours]
+Δz = 8
+times = [96hours - 20minutes, 96hours]
+#times = [12hours, 96hours]
 field_names = (:b, :e, :u, :v)
 regrid_size = (1, 1, Int(256/Δz))
 
@@ -72,7 +72,7 @@ observations = [observation_library[case] for case in cases]
 mixing_length = MixingLength(Cᴬu   = 0.0,
                              Cᴬc   = 0.0,
                              Cᴬe   = 0.0,
-                             Cᴸᵇ   = 1.36,
+                             Cᵇ    = 0.0,
                              Cᴷu⁻  = 0.101,
                              Cᴷc⁻  = 0.0574,
                              Cᴷe⁻  = 3.32,
@@ -95,8 +95,18 @@ mass = 0.6
 prior_library = Dict()
 prior_library[:CᵂwΔ]  = ScaledLogitNormal(; bounds=(4, 10)) #, interval=(2, 5), mass)
 prior_library[:Cᵂu★]  = ScaledLogitNormal(; bounds=(2, 10)) #, interval=(3, 5), mass)
-prior_library[:Cᴸᵇ]   = ScaledLogitNormal(; bounds=(0, 0.5)) #, interval=(0.1, 2), mass)
 prior_library[:Cᴰ]    = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.5, 2), mass)
+
+prior_library[:Cᵇ]   = ScaledLogitNormal(; bounds=(0, 0.5)) #, interval=(0.1, 2), mass)
+prior_library[:Cˢ]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
+
+prior_library[:Cᵇu]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
+prior_library[:Cᵇc]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
+prior_library[:Cᵇe]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
+
+prior_library[:Cˢu]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
+prior_library[:Cˢc]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
+prior_library[:Cˢe]   = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.1, 2), mass)
 
 prior_library[:Cᴷu⁻]  = ScaledLogitNormal(; bounds=(0, 0.1)) #, interval=(0.01, 0.1), mass)
 prior_library[:Cᴷc⁻]  = ScaledLogitNormal(; bounds=(0, 1)) #, interval=(0.5, 1.0), mass)
@@ -113,6 +123,10 @@ prior_library[:Cᴬu]   = ScaledLogitNormal(; bounds=(0, 0.1))
 prior_library[:Cᴬc]   = ScaledLogitNormal(; bounds=(0, 2))
 prior_library[:Cᴬe]   = ScaledLogitNormal(; bounds=(0, 0.1)) #, interval=(1, 3), mass)
 
+prior_library[:Cᴬˢu]   = ScaledLogitNormal(; bounds=(0, 0.1))
+prior_library[:Cᴬˢc]   = ScaledLogitNormal(; bounds=(0, 2))
+prior_library[:Cᴬˢe]   = ScaledLogitNormal(; bounds=(0, 0.1)) #, interval=(1, 3), mass)
+
 prior_library[:Cᵟu]  = ScaledLogitNormal(; bounds=(0, 10))
 prior_library[:Cᵟc]  = ScaledLogitNormal(; bounds=(0, 10))
 prior_library[:Cᵟe]  = ScaledLogitNormal(; bounds=(0, 10))
@@ -123,11 +137,18 @@ variable_Ri_parameters = (:Cᴷuʳ, :Cᴷcʳ, :Cᴷeʳ, :CᴷRiʷ, :CᴷRiᶜ, :
 convective_adjustment_parameters = (:Cᴬc, :Cᴬe) # Cᴬu
 
 # :Cᴸˢ
-parameter_names = (:CᵂwΔ, :Cᵂu★, :Cᴷe⁻, :Cᴸᵇ, :Cᴰ, :Cᴷc⁻, :Cᴷu⁻, :Cᴷuʳ, :Cᴷcʳ, :Cᴷeʳ, :CᴷRiᶜ, :CᴷRiʷ, :Cᴬc, :Cᴬe)
+parameter_names = (:CᵂwΔ,  :Cᵂu★, :Cᴰ,
+                   #:Cˢ, #:Cˢc,   :Cˢu,  :Cˢe,
+                   :Cᵇ, #:Cᵇc,   :Cᵇu,  :Cᵇe,
+                   :Cᴷc⁻,  :Cᴷu⁻, :Cᴷe⁻,
+                   :Cᴷcʳ,  :Cᴷuʳ, :Cᴷeʳ,
+                   :CᴷRiᶜ, :CᴷRiʷ,
+                  )#:Cᴬc,  :Cᴬˢc)
+
 free_parameters = FreeParameters(prior_library, names=parameter_names)
 
 Nensemble = 4000
-Δt = 20.0
+Δt = 1.0
 
 function build_simulation()
     simulation = ensemble_column_model_simulation(observations;
